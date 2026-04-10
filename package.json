@@ -8,6 +8,11 @@
   "main": "index.js",
   "scripts": {
     "test": "test",
-    "start": "node index.js"
+    "start": "node dist/index.js"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "^22.0.5",
+    "@types/node": "^25.5.2",
+    "typescript": "^6.0.2"
   }
 }
