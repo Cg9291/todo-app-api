@@ -1,66 +1,45 @@
 import http from 'node:http'
-import fs from 'node:fs/promises'
-import path from 'node:path';
-import { handleSuccess } from './responseHandlers/handleSuccess.js';
+import { handleResponse } from './responseHandlers/handleResponse.js';
+import { handleTaskCreation } from './routeHandlers/handleTaskCreation.js';
+import { handleGetTasks } from './routeHandlers/handleGetTasks.js';
+import path from "node:path"
+
 const PORT = 3000;
 
 const server = http.createServer(async (req, res) => {
   const baseUrl = `http://${req.headers.host}`
-  const requestPath = req.url;
+  const requestPath = req.url || '/';
   const method = req.method
   const requestInfo = new URL(requestPath, baseUrl)
   const segments = requestInfo.pathname.split("/").filter(Boolean)
-  console.log({ path: requestPath, method, requestInfo })
 
+  const __dirname = import.meta.dirname
 
   if (requestInfo.pathname === "/") {
     if (method === 'GET') {
-      const __dirname = import.meta.dirname
       const dataPath = path.join(__dirname, '../data', 'todos-list.json')
-      let rawResource = await fs.readFile(dataPath, 'utf8')
-      rawResource = JSON.parse(rawResource)
-      console.log({ dataPath, rawResource })
-      return handleSuccess(200, 'application/json', rawResource, res)
-      // res.statusCode = 200
-      // res.setHeader("Content-Type", "application/json")
-      // return res.end(rawResource)
+      const data = await handleGetTasks(dataPath)
+
+      return handleResponse(200, 'application/json', data, res)
     }
-    res.statusCode = 405;
-    res.setHeader('Content-Type', 'application/json')
-    return res.end(JSON.stringify({ error: "Only GET method can be perfomed on this endpoint" }))
+
+    return handleResponse(405, 'application/json', { error: "Only GET method can be performed on this endpoint" }, res)
   }
 
   if (segments[0].toLowerCase() === "todos") {
     if (method === 'POST') {
-      let body = ''
-      for await (const chunk of req) {
-        body += chunk
-      }
-      const __dirname = import.meta.dirname
-      const dataPath = path.join(__dirname, '../data', 'todos-list.json')
-      let rawResource = await fs.readFile(dataPath, 'utf8')
-      rawResource = JSON.parse(rawResource)
-      console.log({ body })
-      let parsedBody = JSON.parse(body)
-      parsedBody = { id: Math.floor(Math.random() * 100), ...parsedBody }
+      const jsonDBPath = path.join(__dirname, '../data', 'todos-list.json')
       try {
-        let updatedResource = [...rawResource, parsedBody]
-        updatedResource = JSON.stringify(updatedResource)
-        console.log({ rawResource, parsedBody, updatedResource })
-        await fs.writeFile(dataPath, updatedResource, 'utf8')
-        console.log("You successfully wrote to data")
+        const parsedBody = await handleTaskCreation(jsonDBPath, req)
+        return handleResponse(201, 'application/json', parsedBody, res)
       } catch (err) {
-        console.log("There has been an error writing to the file", err)
+        console.error("Failed to create task", err)
+        return handleResponse(500, 'application/json', { error: "Failed to create task" }, res)
       }
-      return handleSuccess(200, 'application/json', parsedBody, res)
-      // res.statusCode = 200
-      // res.setHeader('Content-Type', 'application/json')
-      // return res.end(JON.stringify(parsedBody))
     }
+    return handleResponse(405, 'application/json', { error: "Method not allowed" }, res)
   }
-  res.statusCode = 400;
-  res.setHeader('Content-Type', 'application/json')
-  return res.end(JSON.stringify({ error: "Wrong route/buddy" }))
+  handleResponse(400, 'application/json', { error: "Wrong route/buddy" }, res)
 })
 
-server.listen(PORT, () => { `Server running on port:${PORT}` })
+server.listen(PORT, () => { console.log(`Server running on port:${PORT}`) })
