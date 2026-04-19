@@ -1,8 +1,9 @@
 import http from 'node:http'
-import { handleResponse } from './responseHandlers/handleResponse.js';
-import { handleTaskCreation } from './routeHandlers/handleTaskCreation.js';
-import { handleGetTasks } from './routeHandlers/handleGetTasks.js';
+import { handleResponse } from './responseHandlers/handleResponse.ts';
+import { handleTaskCreation } from './routeHandlers/handleTaskCreation.ts';
+import { handleGetTasks } from './routeHandlers/handleGetTasks.ts';
 import path from "node:path"
+import { handleTaskUpdate } from './routeHandlers/handleTaskUpdate.ts';
 
 const PORT = 3000;
 
@@ -14,10 +15,10 @@ const server = http.createServer(async (req, res) => {
   const segments = requestInfo.pathname.split("/").filter(Boolean)
 
   const __dirname = import.meta.dirname
+  const dataPath = path.join(__dirname, '../data', 'todos-list.json')
 
   if (requestInfo.pathname === "/") {
     if (method === 'GET') {
-      const dataPath = path.join(__dirname, '../data', 'todos-list.json')
       const data = await handleGetTasks(dataPath)
 
       return handleResponse(200, 'application/json', data, res)
@@ -26,20 +27,47 @@ const server = http.createServer(async (req, res) => {
     return handleResponse(405, 'application/json', { error: "Only GET method can be performed on this endpoint" }, res)
   }
 
-  if (segments[0].toLowerCase() === "todos") {
-    if (method === 'POST') {
-      const jsonDBPath = path.join(__dirname, '../data', 'todos-list.json')
-      try {
-        const parsedBody = await handleTaskCreation(jsonDBPath, req)
-        return handleResponse(201, 'application/json', parsedBody, res)
-      } catch (err) {
-        console.error("Failed to create task", err)
-        return handleResponse(500, 'application/json', { error: "Failed to create task" }, res)
+  if (segments[0]?.toLowerCase() === "todos") {
+    if (!segments[1]) {
+      if (method === 'POST') {
+        const jsonDBPath = path.join(__dirname, '../data', 'todos-list.json')
+
+        try {
+          const parsedBody = await handleTaskCreation(jsonDBPath, req)
+          return handleResponse(201, 'application/json', parsedBody, res)
+        } catch (err) {
+          console.error("Failed to create task", err)
+          return handleResponse(500, 'application/json', { error: "Failed to create task" }, res)
+        }
       }
+
+      return handleResponse(405, 'application/json', { error: "Method not allowed" }, res)
     }
+
+    const todoId = segments[1]
+    const parsedTodoId = Number(todoId)
+    console.log({ parsedTodoId })
+    if (isNaN(parsedTodoId)) {
+      return handleResponse(400, 'application/json', { error: "The id path parameter should be a number" }, res)
+    }
+    if (method === "PUT") {
+      const updatedTask = await handleTaskUpdate(
+        dataPath,
+        parsedTodoId,
+        req
+      )
+      if (!updatedTask) {
+        return handleResponse(500, 'application/json', { error: "Something went wrong, resource could not be updated" }, res)
+      }
+      return handleResponse(200, 'application/json', { message: "Resource was successfully updated", updatedTask }, res)
+    }
+    if (method === "DELETE") {
+      return handleResponse(501, 'application/json', { message: "This method is not ready yet", info: requestInfo, taskId: todoId }, res)
+    }
+
     return handleResponse(405, 'application/json', { error: "Method not allowed" }, res)
   }
-  handleResponse(400, 'application/json', { error: "Wrong route/buddy" }, res)
+  handleResponse(404, 'application/json', { error: "Wrong route/buddy" }, res)
 })
 
 server.listen(PORT, () => { console.log(`Server running on port:${PORT}`) })

@@ -5,6 +5,8 @@
     "outDir": "dist",
     "types": [
       "node"
-    ]
+    ],
+    "allowImportingTsExtensions": true,
+    "noEmit": true
   }
 }
