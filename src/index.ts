@@ -24,8 +24,9 @@ const server = http.createServer(async (req, res) => {
     //todo: add redirection to todos/
     if (method === 'GET') {
       const data = await handleGetTasks(dataPath)
-
-      return handleResponse(200, 'application/json', data, res)
+      const total = data.length
+      const response = { data, total }
+      return handleResponse(200, 'application/json', response, res)
     }
 
     return handleResponse(405, 'application/json', { error: "Only GET method can be performed on this endpoint" }, res)
@@ -35,19 +36,63 @@ const server = http.createServer(async (req, res) => {
     if (!segments[1]) {
       if (method === "GET") {
         const data = await handleGetTasks(dataPath)
+        const total = data.length
+        const response = { data, total }
 
         if (Object.keys(queryObject).length === 0) {
-          return handleResponse(200, 'application/json', data, res)
+          return handleResponse(200, 'application/json', response, res)
         }
-        const { page, limit } = queryObject
-        //todo: handle case where any of the params is falsey 
-        console.log({ limit, page })
-        const offset: number = (page - 1) * limit
-        const filteredData = data.filter((task: ExistingTask) => {
-          return data.indexOf(task) >= offset && data.indexOf(task) <= offset + limit - 1
-        })
-        console.log({ filteredData })
-        return handleResponse(200, 'application/json', filteredData, res)
+        let { page, limit } = queryObject
+        //todo: add dynamic parameter extraction and checks 
+
+        const verifyIsNumber = (param: string) => {
+          return Number.isInteger(Number(param)) && (Number(param)) > 0
+        }
+
+        let filteredData;
+        let filteredTotal;
+        let filteredResponse;
+
+        const filterData = (_limit: number, _page: number = 1) => {
+          const _filteredData = data.filter((task: ExistingTask) => {
+            const limit = _limit >= 1 ? _limit : 1
+            const page = _page >= 1 ? _page : 1
+
+            const offset = (page - 1) * limit
+            const taskIndex = data.indexOf(task)
+
+            return taskIndex >= offset && taskIndex <= offset + limit - 1
+          })
+
+          return _filteredData
+        }
+
+        if (!limit) {
+          return handleResponse(200, 'application/json', response, res)
+        }
+
+        if (!page) {
+          if (!verifyIsNumber(limit)) {
+            return handleResponse(400, 'application/json', { error: "Query param 'limit' must be a positive integer" }, res)
+          }
+
+          filteredData = filterData(Number(limit))
+          filteredTotal = filteredData.length
+          filteredResponse = { data: filteredData, page: 1, limit: Number(limit), total: filteredTotal }
+
+          return handleResponse(200, 'application/json', filteredResponse, res)
+        }
+
+        if (!verifyIsNumber(limit) || !verifyIsNumber(page)) {
+          return handleResponse(400, 'application/json', { error: "All query parameters must be a positive integer" }, res)
+        }
+
+        filteredData = filterData(Number(limit), Number(page))
+        filteredTotal = filteredData.length
+        filteredResponse = { data: filteredData, page: Number(page), limit: Number(limit), total: filteredTotal }
+
+
+        return handleResponse(200, 'application/json', filteredResponse, res)
       }
 
       if (method === 'POST') {
@@ -95,6 +140,7 @@ const server = http.createServer(async (req, res) => {
 
     return handleResponse(405, 'application/json', { error: "Method not allowed" }, res)
   }
+
   handleResponse(404, 'application/json', { error: "Wrong route/buddy" }, res)
 })
 
