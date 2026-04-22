@@ -4,7 +4,7 @@ import { handleTaskCreation } from './routeHandlers/handleTaskCreation.ts';
 import { handleGetTasks } from './routeHandlers/handleGetTasks.ts';
 import path from "node:path"
 import { handleTaskUpdate } from './routeHandlers/handleTaskUpdate.ts';
-import { handleTaskDeletion } from './routeHandlers/handleDeleteTask.ts';
+import { handleTaskDeletion } from './routeHandlers/handleTaskDeletion.ts';
 import type { ExistingTask } from './types/types.ts';
 
 const PORT = 3000;
@@ -21,12 +21,9 @@ const server = http.createServer(async (req, res) => {
   const dataPath = path.join(__dirname, '../data', 'todos-list.json')
   console.log({ requestInfo })
   if (requestInfo.pathname === "/") {
-    //todo: add redirection to todos/
     if (method === 'GET') {
-      const data = await handleGetTasks(dataPath)
-      const total = data.length
-      const response = { data, total }
-      return handleResponse(200, 'application/json', response, res)
+      res.writeHead(301, { 'location': 'todos/' })
+      return res.end()
     }
 
     return handleResponse(405, 'application/json', { error: "Only GET method can be performed on this endpoint" }, res)

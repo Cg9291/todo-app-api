@@ -9,15 +9,15 @@ export async function handleTaskDeletion(dataPath: string, taskId: number) {
       return null
     }
     const parsedData = JSON.parse(rawData)
-    const foundTask = parsedData.find((task: ExistingTask) => task.id === taskId)
 
+    const foundTask = parsedData.find((task: ExistingTask) => task.id === taskId)
     if (!foundTask) {
       return null
     }
     const foundTaskIndex = parsedData.indexOf(foundTask);
-    const updatedData = parsedData.filter((task: ExistingTask) => {
-      parsedData.indexOf(task !== foundTaskIndex);
 
+    const updatedData = parsedData.filter((task: ExistingTask) => {
+      return parsedData.indexOf(task) !== foundTaskIndex;
     })
 
     await writeFile(dataPath, JSON.stringify(updatedData))
