@@ -6,6 +6,7 @@ import path from "node:path"
 import { handleTaskUpdate } from './routeHandlers/handleTaskUpdate.ts';
 import { handleTaskDeletion } from './routeHandlers/handleTaskDeletion.ts';
 import type { ExistingTask } from './types/types.ts';
+import { handleUserRegistration } from './routeHandlers/handleUserRegistration.ts';
 
 const PORT = 3000;
 
@@ -20,6 +21,16 @@ const server = http.createServer(async (req, res) => {
   const __dirname = import.meta.dirname
   const dataPath = path.join(__dirname, '../data', 'todos-list.json')
   console.log({ requestInfo })
+
+
+  if (requestInfo.pathname === "/register") {
+    if (method === "POST") {
+      await handleUserRegistration(req)
+    }
+  }
+
+
+
   if (requestInfo.pathname === "/") {
     if (method === 'GET') {
       res.writeHead(301, { 'location': 'todos/' })

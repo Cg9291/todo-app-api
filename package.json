@@ -12,6 +12,11 @@
   "devDependencies": {
     "@tsconfig/node22": "^22.0.5",
     "@types/node": "^25.5.2",
+    "@types/pg": "^8.20.0",
     "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "pg": "^8.20.0"
   }
 }
