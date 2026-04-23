@@ -1,12 +1,14 @@
-import fs from 'node:fs/promises'
 import type { ExistingTask } from '../types/types.ts'
+import { db } from '../database/db.ts'
 
-export async function handleGetTasks(dataPath: string): Promise<ExistingTask[]> {
+export async function handleGetTasks(): Promise<ExistingTask[]> {
   try {
-    const rawResource = await fs.readFile(dataPath, 'utf8')
-    const parseResource = JSON.parse(rawResource)
-
-    return parseResource
+    const result = await db.query(
+      `
+      SELECT * FROM tasks
+      `
+    )
+    return result.rows
   } catch (err) {
     console.error(`error ${err}`)
     throw err

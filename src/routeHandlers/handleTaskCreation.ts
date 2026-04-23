@@ -1,23 +1,26 @@
-import fs from "node:fs/promises";
 import http from 'node:http'
 import type { ExistingTask } from '../types/types.ts'
+import { db } from "../database/db.ts";
 
-export async function handleTaskCreation(path: string, req: http.IncomingMessage): Promise<ExistingTask> {
+export async function handleTaskCreation(req: http.IncomingMessage): Promise<ExistingTask> {
   try {
     let reqBody = ''
     for await (const chunk of req) {
       reqBody += chunk
     }
 
-    const parsedReqBody = { id: Math.floor(Math.random() * 100), ...JSON.parse(reqBody) }
+    const parsedReqBody = JSON.parse(reqBody)
+    const result = await db.query(
+      `
+      INSERT INTO tasks (title,description)
+      VALUES($1, $2)
+      RETURNING id,title,description
+      `,
+      [parsedReqBody.title, parsedReqBody.description]
+    )
 
-    const jsonDB = await fs.readFile(path, 'utf8')
-    const parsedJsonDB = JSON.parse(jsonDB)
-
-    const updatedDB = [...parsedJsonDB, parsedReqBody]
-    await fs.writeFile(path, JSON.stringify(updatedDB), 'utf8')
-
-    return parsedReqBody
+    const createdTask = result.rows[0]
+    return createdTask
   } catch (err) {
     console.error("Error", err)
     throw err

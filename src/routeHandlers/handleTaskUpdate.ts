@@ -1,8 +1,7 @@
-import { readFile, writeFile } from "node:fs/promises";
-import type { ExistingTask } from "../types/types.ts";
 import http from "node:http";
+import { db } from "../database/db.ts";
 
-export async function handleTaskUpdate(dataPath: string, taskId: number, req: http.IncomingMessage) {
+export async function handleTaskUpdate(taskId: number, req: http.IncomingMessage) {
   let reqBody = '';
 
   try {
@@ -10,26 +9,22 @@ export async function handleTaskUpdate(dataPath: string, taskId: number, req: ht
       reqBody += chunk
     }
     const parsedReqBody = JSON.parse(reqBody)
-
-    const rawData = await readFile(dataPath, 'utf8')
-    if (!rawData) {
-      return null
-    }
-    const parsedData = JSON.parse(rawData)
-
-    const foundTask = parsedData.find((task: ExistingTask) => task.id === taskId)
-
-    if (!foundTask) {
-      return null
+    const { title, description } = parsedReqBody
+    //todo: implement dynamic updates(based on params received)
+    if (!title || !description) {
+      throw Object.assign(new Error("Both title and description are required"), {
+        code: "VALIDATION_ERROR"
+      });
     }
 
-    const foundTaskIndex = parsedData.indexOf(foundTask)
+    const result = await db.query(`
+      UPDATE tasks 
+        SET title = ($1), description=($2)
+        WHERE id=($3)
+        RETURNING *;
+`, [title, description, taskId])
 
-    const updatedTask: ExistingTask = { ...foundTask, ...parsedReqBody }
-    parsedData[foundTaskIndex] = updatedTask;
-
-    await writeFile(dataPath, JSON.stringify(parsedData))
-    return updatedTask
+    return result.rows[0]
   } catch (err) {
     console.error("An error occured", err)
     throw err
