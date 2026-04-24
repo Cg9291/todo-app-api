@@ -30,11 +30,31 @@ export async function handleUserRegistration(req: http.IncomingMessage) {
       throw new Error("User already exists")
     }
 
-    const query = `INSERT INTO users (first_name,last_name,email,password)VALUES($1, $2, $3, $4) RETURNING *`
+    const userInsertionQuery = `INSERT INTO users (first_name,last_name,email,password)VALUES($1, $2, $3, $4) RETURNING *`
 
-    const params = [firstname, lastname, email, password]
-    const result = await db.query(query, params)
-    console.log({ result })
+    const userInsertionParams = [firstname, lastname, email, password]
+    const userInsertionResult = await db.query(userInsertionQuery, userInsertionParams)
+    const userInsertionResultRows = userInsertionResult.rows
+    const createdUserId = userInsertionResultRows[0].id
+    console.log({ result: userInsertionResult, resultRows: userInsertionResultRows, createdUserId })
+
+
+    const currentDate = new Date();
+    const expiryDate = new Date(currentDate.getTime() + 60 * 60 * 1000);
+    const lastAccessedDate = currentDate;
+    const reqHeaders = req.headers
+    const ip = req.socket.remoteAddress
+    const userAgent = reqHeaders['user-agent']
+    // console.log(currentDate, expiryDate, lastAccessedDate)
+
+    const sessionCreationQuery = `INSERT INTO sessions (user_id,created_at,expires_at,last_accessed_at,ip,user_agent)VALUES($1,$2,$3,$4,$5,$6) RETURNING *`
+
+    const sessionCreationParams = [createdUserId, currentDate, expiryDate, lastAccessedDate, ip, userAgent]
+
+    const sessionCreationResult = await db.query(sessionCreationQuery, sessionCreationParams)
+
+    const sessionCreationResultRows = sessionCreationResult.rows
+    console.log({ sessionCreationResultRows })
   } catch (err) {
     throw err
   }
