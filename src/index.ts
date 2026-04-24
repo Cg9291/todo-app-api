@@ -4,8 +4,8 @@ import { handleTaskCreation } from './routeHandlers/handleTaskCreation.ts';
 import { handleGetTasks } from './routeHandlers/handleGetTasks.ts';
 import { handleTaskUpdate } from './routeHandlers/handleTaskUpdate.ts';
 import { handleTaskDeletion } from './routeHandlers/handleTaskDeletion.ts';
-import type { ExistingTask } from './types/types.ts';
 import { handleUserRegistration } from './routeHandlers/handleUserRegistration.ts';
+import { verifyIsNumber } from './utilities/verifyIsNumber.ts';
 
 const PORT = 3000;
 
@@ -16,8 +16,6 @@ const server = http.createServer(async (req, res) => {
   const requestInfo = new URL(requestPath, baseUrl)
   const queryObject = Object.fromEntries(requestInfo.searchParams)
   const segments = requestInfo.pathname.split("/").filter(Boolean)
-  // console.log({ queryObject })
-  // console.log({ requestInfo })
 
 
   if (requestInfo.pathname === "/register") {
@@ -38,64 +36,44 @@ const server = http.createServer(async (req, res) => {
   if (segments[0]?.toLowerCase() === "todos") {
     if (!segments[1]) {
       if (method === "GET") {
-        const data = await handleGetTasks()
-        const total = data.length
-        const response = { data, total }
-
-        if (Object.keys(queryObject).length === 0) {
-          return handleResponse(200, 'application/json', response, res)
-        }
-        let { page, limit } = queryObject
-        //todo: add dynamic parameter extraction and checks 
-
-        const verifyIsNumber = (param: string) => {
-          return Number.isInteger(Number(param)) && (Number(param)) > 0
-        }
-
-        let filteredData;
-        let filteredTotal;
-        let filteredResponse;
-
-        const filterData = (_limit: number, _page: number = 1) => {
-          const _filteredData = data.filter((task: ExistingTask) => {
-            const limit = _limit >= 1 ? _limit : 1
-            const page = _page >= 1 ? _page : 1
-
-            const offset = (page - 1) * limit
-            const taskIndex = data.indexOf(task)
-
-            return taskIndex >= offset && taskIndex <= offset + limit - 1
-          })
-
-          return _filteredData
-        }
-
-        if (!limit) {
-          return handleResponse(200, 'application/json', response, res)
-        }
-
-        if (!page) {
-          if (!verifyIsNumber(limit)) {
-            return handleResponse(400, 'application/json', { error: "Query param 'limit' must be a positive integer" }, res)
+        try {
+          if (Object.keys(queryObject).length === 0) {
+            const data = await handleGetTasks()
+            return handleResponse(200, 'application/json', data, res)
           }
 
-          filteredData = filterData(Number(limit))
-          filteredTotal = filteredData.length
-          filteredResponse = { data: filteredData, page: 1, limit: Number(limit), total: filteredTotal }
+          const { page, limit } = queryObject
+          const hasPage = page !== undefined;
+          const hasLimit = limit !== undefined;
 
-          return handleResponse(200, 'application/json', filteredResponse, res)
+          if (!hasPage && !hasLimit) {
+            const data = await handleGetTasks();
+            return handleResponse(200, 'application/json', data, res);
+          }
+
+          if (!hasPage && hasLimit) {
+            if (!verifyIsNumber(limit)) {
+              return handleResponse(400, 'application/json', { error: 'limit must be a positive integer' }, res)
+            };
+
+            const data = await handleGetTasks(1, Number(limit));
+
+            return handleResponse(200, 'application/json', { data: data.data, page: 1, limit: Number(limit), total: Number(data.total) }, res);
+          }
+
+          if (hasPage && !hasLimit) {
+            return handleResponse(400, 'application/json', { error: "limit is required when page is provided" }, res);
+          }
+
+          if (!verifyIsNumber(page!) || !verifyIsNumber(limit!)) {
+            return handleResponse(400, 'application/json', { error: 'page and limit must be positive integers' }, res);
+          }
+          const data = await handleGetTasks(Number(page), Number(limit))
+          return handleResponse(200, 'application/json', { data: data.data, page: Number(page), limit: Number(limit), total: Number(data.total) }, res)
+        } catch (err) {
+          console.error(err)
+          return handleResponse(500, 'application/json', { error: 'Failed to fetch tasks' }, res)
         }
-
-        if (!verifyIsNumber(limit) || !verifyIsNumber(page)) {
-          return handleResponse(400, 'application/json', { error: "All query parameters must be a positive integer" }, res)
-        }
-
-        filteredData = filterData(Number(limit), Number(page))
-        filteredTotal = filteredData.length
-        filteredResponse = { data: filteredData, page: Number(page), limit: Number(limit), total: filteredTotal }
-
-
-        return handleResponse(200, 'application/json', filteredResponse, res)
       }
 
       if (method === 'POST') {
