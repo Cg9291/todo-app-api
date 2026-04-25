@@ -1,3 +1,4 @@
+
 import http from 'node:http'
 import { handleResponse } from './responseHandlers/handleResponse.ts';
 import { handleTaskCreation } from './routeHandlers/handleTaskCreation.ts';
@@ -6,6 +7,7 @@ import { handleTaskUpdate } from './routeHandlers/handleTaskUpdate.ts';
 import { handleTaskDeletion } from './routeHandlers/handleTaskDeletion.ts';
 import { handleUserRegistration } from './routeHandlers/handleUserRegistration.ts';
 import { verifyIsNumber } from './utilities/verifyIsNumber.ts';
+import { handleAuth } from './auth/handleAuth.ts';
 
 const PORT = 3000;
 
@@ -17,10 +19,27 @@ const server = http.createServer(async (req, res) => {
   const queryObject = Object.fromEntries(requestInfo.searchParams)
   const segments = requestInfo.pathname.split("/").filter(Boolean)
 
+  const sessionId = req.headers["session-id"]
+  console.log({ sessionId })
+  try {
+    const auth = await handleAuth(Number(sessionId))
+    console.log({ auth })
+  } catch (err) {
 
+  }
   if (requestInfo.pathname === "/register") {
     if (method === "POST") {
-      await handleUserRegistration(req)
+      try {
+        const session = await handleUserRegistration(req)
+        const { id, maxAge, expires, httpOnly, sameSite } = session
+
+        res.statusCode = 204;
+        res.setHeader('Set-Cookie', `sessionId=${id};Max-Age=${maxAge},expires=${expires},httpOnly=${httpOnly},SameSite=${sameSite},Path="/"`)
+        res.end()
+      } catch (err) {
+        return handleResponse(500, 'application/json', { error: "Could not complete registration" }, res)
+      }
+
     }
   }
 
