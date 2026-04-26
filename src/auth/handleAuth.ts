@@ -6,8 +6,17 @@ export async function handleAuth(sessionId: number) {
   try {
     const sessionCheckResult = await db.query(sessionCheckQuery, params)
     const session = sessionCheckResult.rows[0]
+    if (sessionCheckResult.rows.length === 0) {
+      return null
+    }
 
-    console.log({ session })
+    const sessionExpiry = session["expires_at"].getTime()
+    const currentDateInMs = new Date().getTime()
+    console.log({ sessionExpiry, currentDateInMs })
+
+    if (sessionExpiry <= currentDateInMs) {
+      return null
+    }
 
     return session
   } catch (err) {

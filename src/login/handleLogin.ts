@@ -1,0 +1,33 @@
+import http from 'node:http'
+import { db } from '../database/db.ts';
+import { handleSessionCreation } from '../auth/handleSessionCreation.ts';
+
+export async function handleLogin(req: http.IncomingMessage) {
+  let reqBody = "";
+
+  try {
+    for await (const chunk of req) {
+      reqBody += chunk
+    }
+    const parsedBody = JSON.parse(reqBody)
+
+    const { email, password } = parsedBody
+    if (!email || !password) {
+      throw new Error('Both email and password are required');
+
+    }
+    const query = `SELECT id,email,password  FROM users WHERE email = $1;`
+    const params = [email]
+    const queryResult = await db.query(query, params)
+    if (queryResult.rows.length === 0) {
+      return null
+    }
+    const foundUser = queryResult.rows[0]
+    // console.log({ foundUser })
+
+    const session = await handleSessionCreation(foundUser.id, req)
+    return session
+  } catch (err) {
+
+  }
+}
