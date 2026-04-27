@@ -1,6 +1,6 @@
-import { db } from "../database/db.ts";
+import { db } from "../../database/db.ts";
 
-export async function handleAuth(sessionId: number) {
+export async function handleVerifySession(sessionId: number) {
   const sessionCheckQuery = `SELECT * FROM sessions WHERE id = ($1)`
   const params = [sessionId]
   try {
@@ -12,7 +12,6 @@ export async function handleAuth(sessionId: number) {
 
     const sessionExpiry = session["expires_at"].getTime()
     const currentDateInMs = new Date().getTime()
-    console.log({ sessionExpiry, currentDateInMs })
 
     if (sessionExpiry <= currentDateInMs) {
       return null

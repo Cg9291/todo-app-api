@@ -4,10 +4,10 @@ import { handleTaskCreation } from './routeHandlers/handleTaskCreation.ts';
 import { handleGetTasks } from './routeHandlers/handleGetTasks.ts';
 import { handleTaskUpdate } from './routeHandlers/handleTaskUpdate.ts';
 import { handleTaskDeletion } from './routeHandlers/handleTaskDeletion.ts';
-import { handleUserRegistration } from './routeHandlers/handleUserRegistration.ts';
+import { handleUserRegistration } from './auth/registration/handleUserRegistration.ts';
 import { verifyIsNumber } from './utilities/verifyIsNumber.ts';
-import { handleAuth } from './auth/handleAuth.ts';
-import { handleLogin } from './login/handleLogin.ts';
+import { handleVerifySession } from './auth/sessions/handleVerifySession.ts';
+import { handleLogin } from './auth/login/handleLogin.ts';
 
 const PORT = 3000;
 
@@ -67,12 +67,13 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
-    authenticatedSession = await handleAuth(Number(sessionId))
+    authenticatedSession = await handleVerifySession(Number(sessionId))
   } catch (err) {
     return handleResponse(500, 'application/json', { error: "Something went wrong during authentication check" }, res)
   }
 
   if (authenticatedSession) {
+    console.log({ authenticatedSession })
     if (requestInfo.pathname === "/") {
       if (method === 'GET') {
         res.writeHead(301, { 'location': 'todos/' })

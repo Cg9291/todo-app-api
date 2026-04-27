@@ -1,6 +1,6 @@
 import http from 'node:http'
-import { db } from '../database/db.ts';
-import { handleSessionCreation } from '../auth/handleSessionCreation.ts';
+import { db } from '../../database/db.ts';
+import { handleSessionCreation } from '../sessions/handleSessionCreation.ts';
 
 export async function handleLogin(req: http.IncomingMessage) {
   let reqBody = "";
@@ -23,7 +23,6 @@ export async function handleLogin(req: http.IncomingMessage) {
       return null
     }
     const foundUser = queryResult.rows[0]
-    // console.log({ foundUser })
     const session = await handleSessionCreation(foundUser.id, req)
     const { password: _password, ...authenticatedUser } = foundUser
     return { session, authenticatedUser }
