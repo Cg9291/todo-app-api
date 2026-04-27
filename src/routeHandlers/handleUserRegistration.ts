@@ -17,30 +17,30 @@ export async function handleUserRegistration(req: http.IncomingMessage) {
       reqBody += chunk
     }
     const parsedBody = JSON.parse(reqBody)
-    // console.log({ parsedBody })
 
     const { firstname, lastname, email, password } = parsedBody
     if (!firstname || !lastname || !email || !password) {
       throw new Error("All of first name, last name, email & password are required");
 
     }
-
+    //todo: add password hashing & salting
     const checkIfAlreadyExistsResult = await db.query('SELECT * FROM users WHERE email = ($1) ', [email]);
 
     if (checkIfAlreadyExistsResult.rows.length !== 0) {
       throw new Error("User already exists")
     }
 
-    const userInsertionQuery = `INSERT INTO users (first_name,last_name,email,password)VALUES($1, $2, $3, $4) RETURNING *`
+    const userCreationQuery = `INSERT INTO users (first_name,last_name,email,password)VALUES($1, $2, $3, $4) RETURNING *`
 
-    const userInsertionParams = [firstname, lastname, email, password]
-    const userInsertionResult = await db.query(userInsertionQuery, userInsertionParams)
-    const userInsertionResultRows = userInsertionResult.rows
-    const createdUserId = userInsertionResultRows[0].id
-    // console.log({ result: userInsertionResult, resultRows: userInsertionResultRows, createdUserId })
+    const userCreationParams = [firstname, lastname, email, password]
+    const userCreationResult = await db.query(userCreationQuery, userCreationParams)
+    const userCreationResultRows = userCreationResult.rows
+    const createdUser = userCreationResultRows[0]
+    const { password: _password, ..._createdUser } = createdUser
 
-    const session = await handleSessionCreation(createdUserId, req)
-    return session
+
+    const session = await handleSessionCreation(createdUser.id, req)
+    return { session, _createdUser }
   } catch (err) {
     throw err
   }

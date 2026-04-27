@@ -21,17 +21,18 @@ const server = http.createServer(async (req, res) => {
 
   const sessionId = req.headers["session-id"]
   // console.log({ sessionId })
-  let authenticatedUser;
+  let authenticatedSession;
 
   if (requestInfo.pathname === "/register") {
     if (method === "POST") {
       try {
-        const session = await handleUserRegistration(req)
+        const { session, _createdUser } = await handleUserRegistration(req)
         const { id, maxAge, expires, httpOnly, sameSite } = session
 
-        res.statusCode = 204;
+        res.statusCode = 201;
         res.setHeader('Set-Cookie', `sessionId=${id};Max-Age=${maxAge},expires=${expires},httpOnly=${httpOnly},SameSite=${sameSite},Path="/"`)
-        res.end()
+
+        return res.end(JSON.stringify({ ..._createdUser }, null, 2))
       } catch (err) {
         return handleResponse(500, 'application/json', { error: "Could not complete registration" }, res)
       }
@@ -42,30 +43,36 @@ const server = http.createServer(async (req, res) => {
   if (requestInfo.pathname === "/login") {
     if (method === "POST") {
       try {
-        const session = await handleLogin(req)
-        if (!session) {
-          return handleResponse(500, "application/json", { error: "Could not log user in" }, res)
+        const loginResult = await handleLogin(req)
+        if (!loginResult) {
+          return handleResponse(401, 'application/json', { error: 'Invalid credentials' }, res);
         }
+
+        const { session, authenticatedUser } = loginResult
+
+        // if (!session) {
+        //   return handleResponse(500, "application/json", { error: "Could not log user in" }, res)
+        // }
         const { id, maxAge, expires, httpOnly, sameSite } = session
 
-        res.statusCode = 204;
+        res.statusCode = 200;
         res.setHeader('Set-Cookie', `sessionId=${id};Max-Age=${maxAge},expires=${expires},httpOnly=${httpOnly},SameSite=${sameSite},Path="/"`)
-        res.end()
-      } catch (err) {
 
+        return res.end(JSON.stringify({ ...authenticatedUser }, null, 2))
+      } catch (err) {
+        //todo: maybe consider adding session info to the response as well(here and in register)
         return handleResponse(500, "application/json", { error: "Could not log user in" }, res)
       }
     }
   }
 
   try {
-    authenticatedUser = await handleAuth(Number(sessionId))
+    authenticatedSession = await handleAuth(Number(sessionId))
   } catch (err) {
     return handleResponse(500, 'application/json', { error: "Something went wrong during authentication check" }, res)
   }
 
-  if (authenticatedUser) {
-
+  if (authenticatedSession) {
     if (requestInfo.pathname === "/") {
       if (method === 'GET') {
         res.writeHead(301, { 'location': 'todos/' })
@@ -120,7 +127,7 @@ const server = http.createServer(async (req, res) => {
 
         if (method === 'POST') {
           try {
-            const parsedBody = await handleTaskCreation(req)
+            const parsedBody = await handleTaskCreation(req, authenticatedSession["user_id"])
             return handleResponse(201, 'application/json', parsedBody, res)
           } catch (err) {
             console.error("Failed to create task", err)

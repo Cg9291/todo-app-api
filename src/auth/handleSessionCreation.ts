@@ -15,12 +15,10 @@ export async function handleSessionCreation(userId: number, req: http.IncomingMe
   const sessionCreationParams = [userId, currentDate, expiryDate, lastAccessedDate, ip, userAgent]
 
   try {
-
     const sessionCreationResult = await db.query(sessionCreationQuery, sessionCreationParams)
 
     const sessionCreationResultRows = sessionCreationResult.rows
     const createdSessionId = sessionCreationResultRows[0].id
-    // console.log({ sessionCreationResultRows })
 
     const sessionInfo = {
       id: createdSessionId,
@@ -30,7 +28,7 @@ export async function handleSessionCreation(userId: number, req: http.IncomingMe
       sameSite: "Strict",
       //todo:maybe add domain as a key
     }
-
+    //todo: add a way to close/delete old sessions for a given user when a new session is created for them
     return sessionInfo
   } catch (err) {
     console.error(err)
