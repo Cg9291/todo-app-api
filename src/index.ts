@@ -8,6 +8,7 @@ import { handleUserRegistration } from './auth/registration/handleUserRegistrati
 import { verifyIsNumber } from './utilities/verifyIsNumber.ts';
 import { handleVerifySession } from './auth/sessions/handleVerifySession.ts';
 import { handleLogin } from './auth/login/handleLogin.ts';
+import * as zod from 'zod'
 
 const PORT = 3000;
 
@@ -20,7 +21,6 @@ const server = http.createServer(async (req, res) => {
   const segments = requestInfo.pathname.split("/").filter(Boolean)
 
   const sessionId = req.headers["session-id"]
-  // console.log({ sessionId })
   let authenticatedSession;
 
   if (requestInfo.pathname === "/register") {
@@ -34,6 +34,12 @@ const server = http.createServer(async (req, res) => {
 
         return res.end(JSON.stringify({ ..._createdUser }, null, 2))
       } catch (err) {
+        if (err instanceof zod.ZodError) {
+          const errorMessages = err.issues.map((error) => error.message)
+
+          return handleResponse(400, 'application/json', { error: "Validation failed", details: errorMessages }, res)
+        }
+
         return handleResponse(500, 'application/json', { error: "Could not complete registration" }, res)
       }
 
