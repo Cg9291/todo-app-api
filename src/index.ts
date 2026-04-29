@@ -73,7 +73,8 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (authenticatedSession) {
-    console.log({ authenticatedSession })
+    const userId = authenticatedSession["user_id"]
+
     if (requestInfo.pathname === "/") {
       if (method === 'GET') {
         res.writeHead(301, { 'location': 'todos/' })
@@ -88,7 +89,7 @@ const server = http.createServer(async (req, res) => {
         if (method === "GET") {
           try {
             if (Object.keys(queryObject).length === 0) {
-              const data = await handleGetTasks()
+              const data = await handleGetTasks(userId)
               return handleResponse(200, 'application/json', data, res)
             }
 
@@ -97,7 +98,7 @@ const server = http.createServer(async (req, res) => {
             const hasLimit = limit !== undefined;
 
             if (!hasPage && !hasLimit) {
-              const data = await handleGetTasks();
+              const data = await handleGetTasks(userId);
               return handleResponse(200, 'application/json', data, res);
             }
 
@@ -150,6 +151,7 @@ const server = http.createServer(async (req, res) => {
         try {
           const updatedTask = await handleTaskUpdate(
             parsedTodoId,
+            userId,
             req
           )
           if (!updatedTask) {
@@ -174,7 +176,7 @@ const server = http.createServer(async (req, res) => {
 
       if (method === "DELETE") {
         try {
-          const deleted = await handleTaskDeletion(parsedTodoId)
+          const deleted = await handleTaskDeletion(parsedTodoId, userId)
 
           if (!deleted) {
             return handleResponse(404, 'application/json', { error: "Task not found" }, res)

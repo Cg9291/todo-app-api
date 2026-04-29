@@ -1,7 +1,7 @@
 import type { ExistingTask } from '../types/types.ts'
 import { db } from '../database/db.ts'
 
-export async function handleGetTasks(page?: number, limit?: number): Promise<{ data: ExistingTask[], total: number }> {
+export async function handleGetTasks(userId: number, page?: number, limit?: number): Promise<{ data: ExistingTask[], total: number }> {
   let selectQuery: string;
   let params: number[] = [];
 
@@ -11,16 +11,17 @@ export async function handleGetTasks(page?: number, limit?: number): Promise<{ d
 
   if (!limit) {
     // the null comparison also covers undefined
-    selectQuery = `SELECT * FROM tasks ORDER BY id`
+    selectQuery = `SELECT * FROM tasks WHERE user_id = ($1) ORDER BY id `
+    params = [userId]
   } else {
     if (!page) {
       // the null comparison also covers undefined
 
-      selectQuery = `SELECT * FROM tasks ORDER BY id LIMIT ($1)`
-      params = [limit]
+      selectQuery = `SELECT * FROM tasks WHERE user_id = ($1) ORDER BY id LIMIT ($2)`
+      params = [userId, limit]
     } else {
-      selectQuery = `SELECT * FROM tasks ORDER BY id LIMIT ($1) OFFSET ($2)`
-      params = [limit, (page - 1) * limit]
+      selectQuery = `SELECT * FROM tasks WHERE user_id = ($1) ORDER BY id LIMIT ($2) OFFSET ($3)`
+      params = [userId, limit, (page - 1) * limit]
     }
   }
 
@@ -29,7 +30,7 @@ export async function handleGetTasks(page?: number, limit?: number): Promise<{ d
       selectQuery, params)
 
     const total = await db.query(
-      `SELECT COUNT(*) AS total FROM tasks`
+      `SELECT COUNT(*) AS total FROM tasks WHERE user_id = ($1)`, [userId]
     );
 
     const totalRows = total.rows[0].total

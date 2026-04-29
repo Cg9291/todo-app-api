@@ -1,7 +1,7 @@
 import http from "node:http";
 import { db } from "../database/db.ts";
 
-export async function handleTaskUpdate(taskId: number, req: http.IncomingMessage) {
+export async function handleTaskUpdate(taskId: number, userId: number, req: http.IncomingMessage) {
   let reqBody = '';
 
   try {
@@ -20,9 +20,9 @@ export async function handleTaskUpdate(taskId: number, req: http.IncomingMessage
     const result = await db.query(`
       UPDATE tasks 
         SET title = ($1), description=($2)
-        WHERE id=($3)
+        WHERE id=($3) AND user_id=($4)
         RETURNING *;
-`, [title, description, taskId])
+`, [title, description, taskId, userId])
 
     return result.rows[0]
   } catch (err) {

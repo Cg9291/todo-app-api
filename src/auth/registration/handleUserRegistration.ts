@@ -1,6 +1,6 @@
 import http from 'node:http'
-import { db } from '../database/db.ts'
-import { handleSessionCreation } from '../auth/handleSessionCreation.ts'
+import { db } from '../../database/db.ts'
+import { handleSessionCreation } from '../sessions/handleSessionCreation.ts'
 
 interface RegistrationBody {
   firstname: string,
