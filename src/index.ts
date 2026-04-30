@@ -50,9 +50,9 @@ const server = http.createServer(async (req, res) => {
     if (method === "POST") {
       try {
         const loginResult = await handleLogin(req)
-        if (!loginResult) {
-          return handleResponse(401, 'application/json', { error: 'Invalid credentials' }, res);
-        }
+        // if (!loginResult) {
+        //   return handleResponse(401, 'application/json', { error: 'Invalid credentials' }, res);
+        // }
 
         const { session, authenticatedUser } = loginResult
 
@@ -66,6 +66,11 @@ const server = http.createServer(async (req, res) => {
 
         return res.end(JSON.stringify({ ...authenticatedUser }, null, 2))
       } catch (err) {
+        if (err instanceof zod.ZodError) {
+          const errorMessages = err.issues.map((error) => error.message)
+
+          return handleResponse(400, 'application/json', { error: "Validation failed", details: errorMessages }, res)
+        }
         //todo: maybe consider adding session info to the response as well(here and in register)
         return handleResponse(500, "application/json", { error: "Could not log user in" }, res)
       }
@@ -73,6 +78,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
+    //todo: handle the case where session id isnt provided, or is not in proper format
     authenticatedSession = await handleVerifySession(Number(sessionId))
   } catch (err) {
     return handleResponse(500, 'application/json', { error: "Something went wrong during authentication check" }, res)
@@ -113,7 +119,7 @@ const server = http.createServer(async (req, res) => {
                 return handleResponse(400, 'application/json', { error: 'limit must be a positive integer' }, res)
               };
 
-              const data = await handleGetTasks(1, Number(limit));
+              const data = await handleGetTasks(userId, 1, Number(limit));
 
               return handleResponse(200, 'application/json', { data: data.data, page: 1, limit: Number(limit), total: Number(data.total) }, res);
             }
@@ -125,7 +131,7 @@ const server = http.createServer(async (req, res) => {
             if (!verifyIsNumber(page!) || !verifyIsNumber(limit!)) {
               return handleResponse(400, 'application/json', { error: 'page and limit must be positive integers' }, res);
             }
-            const data = await handleGetTasks(Number(page), Number(limit))
+            const data = await handleGetTasks(userId, Number(page), Number(limit))
             return handleResponse(200, 'application/json', { data: data.data, page: Number(page), limit: Number(limit), total: Number(data.total) }, res)
           } catch (err) {
             console.error(err)
@@ -138,7 +144,11 @@ const server = http.createServer(async (req, res) => {
             const parsedBody = await handleTaskCreation(req, authenticatedSession["user_id"])
             return handleResponse(201, 'application/json', parsedBody, res)
           } catch (err) {
-            console.error("Failed to create task", err)
+            if (err instanceof zod.ZodError) {
+              const errorMessages = err.issues.map((error) => error.message)
+
+              return handleResponse(400, 'application/json', { error: "Validation failed", details: errorMessages }, res)
+            }
             return handleResponse(500, 'application/json', { error: "Failed to create task" }, res)
           }
         }
@@ -166,15 +176,23 @@ const server = http.createServer(async (req, res) => {
 
           return handleResponse(200, 'application/json', { message: "Resource was successfully updated", updatedTask }, res)
         } catch (err) {
-          const e = err as Error & { code?: string }
 
-          if (e.code === "VALIDATION_ERROR") {
-            return handleResponse(400, 'application/json', { error: e.message }, res)
+          if (err instanceof zod.ZodError) {
+            const errorMessages = err.issues.map((error) => error.message)
+
+            return handleResponse(400, 'application/json', { error: "Validation failed", details: errorMessages }, res)
           }
 
-          if (e instanceof SyntaxError) {
-            return handleResponse(400, 'application/json', { error: 'Invalid JSON body' }, res);
-          }
+          // const e = err as Error & { code?: string }
+          //
+          // if (e.code === "VALIDATION_ERROR") {
+          //   return handleResponse(400, 'application/json', { error: e.message }, res)
+          // }
+          //
+          // if (e instanceof SyntaxError) {
+          //   return handleResponse(400, 'application/json', { error: 'Invalid JSON body' }, res);
+          // }
+          //
 
           return handleResponse(500, 'application/json', { error: 'Failed to update task' }, res);
         }

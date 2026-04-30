@@ -25,7 +25,7 @@ export async function handleUserRegistration(req: http.IncomingMessage) {
     const validatedBody = UserRegistrationSchema.parse(parsedBody)
     console.log({ validatedBody })
 
-    const { firstname, lastname, email, password } = parsedBody
+    const { firstname, lastname, email, password } = validatedBody
     // if (!firstname || !lastname || !email || !password) {
     //   throw new Error("All of first name, last name, email & password are required");
     //

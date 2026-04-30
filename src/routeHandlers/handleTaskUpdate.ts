@@ -1,32 +1,36 @@
 import http from "node:http";
 import { db } from "../database/db.ts";
+import { TaskSchema } from "./handleTaskCreation.ts";
+import zod from "zod";
+
 
 export async function handleTaskUpdate(taskId: number, userId: number, req: http.IncomingMessage) {
   let reqBody = '';
-
+  console.log({ taskId })
   try {
     for await (const chunk of req) {
       reqBody += chunk
     }
     const parsedReqBody = JSON.parse(reqBody)
-    const { title, description } = parsedReqBody
+    const validatedBody = TaskSchema.parse(parsedReqBody)
+    const { title, description } = validatedBody
+
     //todo: implement dynamic updates(based on params received)
-    if (!title || !description) {
-      throw Object.assign(new Error("Both title and description are required"), {
-        code: "VALIDATION_ERROR"
-      });
-    }
+
 
     const result = await db.query(`
       UPDATE tasks 
         SET title = ($1), description=($2)
-        WHERE id=($3) AND user_id=($4)
+        WHERE (id=($3) AND user_id=($4))
         RETURNING *;
 `, [title, description, taskId, userId])
 
-    return result.rows[0]
+    const updatedTask = result.rows[0]
+    return updatedTask
   } catch (err) {
-    console.error("An error occured", err)
+    if (err instanceof zod.ZodError) {
+      console.error(err.issues)
+    }
     throw err
   }
 }
