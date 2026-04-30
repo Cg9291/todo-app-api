@@ -2,6 +2,7 @@ import http from 'node:http'
 import { db } from '../../database/db.ts';
 import { handleSessionCreation } from '../sessions/handleSessionCreation.ts';
 import zod from 'zod';
+import bcrypt from "bcrypt";
 
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,72}$/
 
@@ -32,6 +33,11 @@ export async function handleLogin(req: http.IncomingMessage) {
       return null
     }
     const foundUser = queryResult.rows[0]
+    const isPasswordValid = await bcrypt.compare(password, foundUser.password)
+    if (!isPasswordValid) {
+      return null
+    }
+
     const session = await handleSessionCreation(foundUser.id, req)
     const { password: _password, ...authenticatedUser } = foundUser
     return { session, authenticatedUser }

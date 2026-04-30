@@ -2,7 +2,6 @@ import { db } from "../../database/db.ts";
 
 export async function handleVerifySession(sessionId: number) {
   const sessionCheckQuery = `SELECT * FROM sessions WHERE id = ($1)`
-  console.log(sessionId)
   const params = [sessionId]
   try {
     const sessionCheckResult = await db.query(sessionCheckQuery, params)

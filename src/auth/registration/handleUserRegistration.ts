@@ -2,6 +2,7 @@ import http from 'node:http'
 import { db } from '../../database/db.ts'
 import { handleSessionCreation } from '../sessions/handleSessionCreation.ts'
 import * as zod from 'zod'
+import bcrypt from "bcrypt";
 
 const nameRegex = /^\p{L}+(?:[ '-]\p{L}+)*$/u;
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,72}$/
@@ -26,11 +27,7 @@ export async function handleUserRegistration(req: http.IncomingMessage) {
     console.log({ validatedBody })
 
     const { firstname, lastname, email, password } = validatedBody
-    // if (!firstname || !lastname || !email || !password) {
-    //   throw new Error("All of first name, last name, email & password are required");
-    //
-    // }
-    //todo: add password hashing & salting
+
     const checkIfAlreadyExistsResult = await db.query('SELECT * FROM users WHERE email = ($1) ', [email]);
 
     if (checkIfAlreadyExistsResult.rows.length !== 0) {
@@ -39,10 +36,10 @@ export async function handleUserRegistration(req: http.IncomingMessage) {
 
     const userCreationQuery = `INSERT INTO users (first_name,last_name,email,password)VALUES($1, $2, $3, $4) RETURNING *`
 
-    const userCreationParams = [firstname, lastname, email, password]
+    const encryptedPassword = await bcrypt.hash(password, 10)
+    const userCreationParams = [firstname, lastname, email, encryptedPassword]
     const userCreationResult = await db.query(userCreationQuery, userCreationParams)
-    const userCreationResultRows = userCreationResult.rows
-    const createdUser = userCreationResultRows[0]
+    const createdUser = userCreationResult.rows[0]
     const { password: _password, ..._createdUser } = createdUser
 
 

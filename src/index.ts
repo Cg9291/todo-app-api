@@ -50,9 +50,9 @@ const server = http.createServer(async (req, res) => {
     if (method === "POST") {
       try {
         const loginResult = await handleLogin(req)
-        // if (!loginResult) {
-        //   return handleResponse(401, 'application/json', { error: 'Invalid credentials' }, res);
-        // }
+        if (!loginResult) {
+          return handleResponse(401, 'application/json', { error: 'Invalid credentials' }, res);
+        }
 
         const { session, authenticatedUser } = loginResult
 
