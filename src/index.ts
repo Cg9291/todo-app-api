@@ -20,7 +20,7 @@ const server = http.createServer(async (req, res) => {
   const queryObject = Object.fromEntries(requestInfo.searchParams)
   const segments = requestInfo.pathname.split("/").filter(Boolean)
 
-  const sessionId = req.headers["session-id"]
+
   let authenticatedSession;
 
   if (requestInfo.pathname === "/register") {
@@ -38,6 +38,12 @@ const server = http.createServer(async (req, res) => {
           const errorMessages = err.issues.map((error) => error.message)
 
           return handleResponse(400, 'application/json', { error: "Validation failed", details: errorMessages }, res)
+        }
+
+        const e = err as Error & { code?: string };
+
+        if (e.code === "USER_ALREADY_EXISTS") {
+          return handleResponse(409, 'application/json', { error: e.message }, res);
         }
 
         return handleResponse(500, 'application/json', { error: "Could not complete registration" }, res)
@@ -77,9 +83,18 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  const sessionId = req.headers["session-id"]
+  const parsedSessionId = Number(sessionId);
+
+  if (!sessionId || !Number.isInteger(parsedSessionId) || parsedSessionId <= 0) {
+    return handleResponse(401, 'application/json', {
+      error: "Invalid or expired session"
+    }, res);
+  }
+
   try {
     //todo: handle the case where session id isnt provided, or is not in proper format
-    authenticatedSession = await handleVerifySession(Number(sessionId))
+    authenticatedSession = await handleVerifySession(parsedSessionId)
   } catch (err) {
     return handleResponse(500, 'application/json', { error: "Something went wrong during authentication check" }, res)
   }

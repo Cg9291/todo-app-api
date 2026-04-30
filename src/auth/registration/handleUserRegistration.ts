@@ -24,14 +24,15 @@ export async function handleUserRegistration(req: http.IncomingMessage) {
     }
     const parsedBody = JSON.parse(reqBody)
     const validatedBody = UserRegistrationSchema.parse(parsedBody)
-    console.log({ validatedBody })
 
     const { firstname, lastname, email, password } = validatedBody
 
     const checkIfAlreadyExistsResult = await db.query('SELECT * FROM users WHERE email = ($1) ', [email]);
 
     if (checkIfAlreadyExistsResult.rows.length !== 0) {
-      throw new Error("User already exists")
+      throw Object.assign(new Error("User already exists"), {
+        code: "USER_ALREADY_EXISTS"
+      });
     }
 
     const userCreationQuery = `INSERT INTO users (first_name,last_name,email,password)VALUES($1, $2, $3, $4) RETURNING *`
