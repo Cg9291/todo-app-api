@@ -10,13 +10,10 @@ export async function handleGetTasks(userId: number, page?: number, limit?: numb
   }
 
   if (!limit) {
-    // the null comparison also covers undefined
     selectQuery = `SELECT * FROM tasks WHERE user_id = ($1) ORDER BY id `
     params = [userId]
   } else {
     if (!page) {
-      // the null comparison also covers undefined
-
       selectQuery = `SELECT * FROM tasks WHERE user_id = ($1) ORDER BY id LIMIT ($2)`
       params = [userId, limit]
     } else {

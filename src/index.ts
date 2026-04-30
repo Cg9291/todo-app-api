@@ -5,7 +5,7 @@ import { handleGetTasks } from './routeHandlers/handleGetTasks.ts';
 import { handleTaskUpdate } from './routeHandlers/handleTaskUpdate.ts';
 import { handleTaskDeletion } from './routeHandlers/handleTaskDeletion.ts';
 import { handleUserRegistration } from './auth/registration/handleUserRegistration.ts';
-import { verifyIsNumber } from './utilities/verifyIsNumber.ts';
+import { verifyIsPaginationNumber } from './utilities/verifyIsNumber.ts';
 import { handleVerifySession } from './auth/sessions/handleVerifySession.ts';
 import { handleLogin } from './auth/login/handleLogin.ts';
 import * as zod from 'zod'
@@ -23,7 +23,6 @@ const server = http.createServer(async (req, res) => {
   const segments = requestInfo.pathname.split("/").filter(Boolean)
 
 
-  let authenticatedSession;
 
   if (requestInfo.pathname === "/register") {
     if (method === "POST") {
@@ -94,6 +93,8 @@ const server = http.createServer(async (req, res) => {
     }, res);
   }
 
+  let authenticatedSession;
+
   try {
     authenticatedSession = await handleVerifySession(parsedSessionId)
   } catch (err) {
@@ -131,7 +132,7 @@ const server = http.createServer(async (req, res) => {
             }
 
             if (!hasPage && hasLimit) {
-              if (!verifyIsNumber(limit)) {
+              if (!verifyIsPaginationNumber(limit)) {
                 return handleResponse(400, 'application/json', { error: 'limit must be a positive integer' }, res)
               };
 
@@ -144,7 +145,7 @@ const server = http.createServer(async (req, res) => {
               return handleResponse(400, 'application/json', { error: "limit is required when page is provided" }, res);
             }
 
-            if (!verifyIsNumber(page!) || !verifyIsNumber(limit!)) {
+            if (!verifyIsPaginationNumber(page!) || !verifyIsPaginationNumber(limit!)) {
               return handleResponse(400, 'application/json', { error: 'page and limit must be positive integers' }, res);
             }
             const data = await handleGetTasks(userId, Number(page), Number(limit))
