@@ -9,6 +9,8 @@ import { verifyIsNumber } from './utilities/verifyIsNumber.ts';
 import { handleVerifySession } from './auth/sessions/handleVerifySession.ts';
 import { handleLogin } from './auth/login/handleLogin.ts';
 import * as zod from 'zod'
+import { handleSyntaxError } from './errorHandlers/handleSyntaxError.ts';
+import { handleValidationError } from './errorHandlers/handleValidationError.ts';
 
 const PORT = 3000;
 
@@ -34,14 +36,15 @@ const server = http.createServer(async (req, res) => {
 
         return res.end(JSON.stringify({ ..._createdUser }, null, 2))
       } catch (err) {
-        if (err instanceof zod.ZodError) {
-          const errorMessages = err.issues.map((error) => error.message)
+        if (err instanceof SyntaxError) {
+          return handleSyntaxError(res)
+        }
 
-          return handleResponse(400, 'application/json', { error: "Validation failed", details: errorMessages }, res)
+        if (err instanceof zod.ZodError) {
+          return handleValidationError(err, res)
         }
 
         const e = err as Error & { code?: string };
-
         if (e.code === "USER_ALREADY_EXISTS") {
           return handleResponse(409, 'application/json', { error: e.message }, res);
         }
@@ -62,9 +65,6 @@ const server = http.createServer(async (req, res) => {
 
         const { session, authenticatedUser } = loginResult
 
-        // if (!session) {
-        //   return handleResponse(500, "application/json", { error: "Could not log user in" }, res)
-        // }
         const { id, maxAge, expires, httpOnly, sameSite } = session
 
         res.statusCode = 200;
@@ -72,10 +72,12 @@ const server = http.createServer(async (req, res) => {
 
         return res.end(JSON.stringify({ ...authenticatedUser }, null, 2))
       } catch (err) {
-        if (err instanceof zod.ZodError) {
-          const errorMessages = err.issues.map((error) => error.message)
+        if (err instanceof SyntaxError) {
+          return handleSyntaxError(res)
+        }
 
-          return handleResponse(400, 'application/json', { error: "Validation failed", details: errorMessages }, res)
+        if (err instanceof zod.ZodError) {
+          return handleValidationError(err, res)
         }
         //todo: maybe consider adding session info to the response as well(here and in register)
         return handleResponse(500, "application/json", { error: "Could not log user in" }, res)
@@ -158,11 +160,14 @@ const server = http.createServer(async (req, res) => {
             const parsedBody = await handleTaskCreation(req, authenticatedSession["user_id"])
             return handleResponse(201, 'application/json', parsedBody, res)
           } catch (err) {
-            if (err instanceof zod.ZodError) {
-              const errorMessages = err.issues.map((error) => error.message)
-
-              return handleResponse(400, 'application/json', { error: "Validation failed", details: errorMessages }, res)
+            if (err instanceof SyntaxError) {
+              return handleSyntaxError(res)
             }
+
+            if (err instanceof zod.ZodError) {
+              return handleValidationError(err, res)
+            }
+
             return handleResponse(500, 'application/json', { error: "Failed to create task" }, res)
           }
         }
@@ -191,22 +196,13 @@ const server = http.createServer(async (req, res) => {
           return handleResponse(200, 'application/json', { message: "Resource was successfully updated", updatedTask }, res)
         } catch (err) {
 
-          if (err instanceof zod.ZodError) {
-            const errorMessages = err.issues.map((error) => error.message)
-
-            return handleResponse(400, 'application/json', { error: "Validation failed", details: errorMessages }, res)
+          if (err instanceof SyntaxError) {
+            return handleSyntaxError(res)
           }
 
-          // const e = err as Error & { code?: string }
-          //
-          // if (e.code === "VALIDATION_ERROR") {
-          //   return handleResponse(400, 'application/json', { error: e.message }, res)
-          // }
-          //
-          // if (e instanceof SyntaxError) {
-          //   return handleResponse(400, 'application/json', { error: 'Invalid JSON body' }, res);
-          // }
-          //
+          if (err instanceof zod.ZodError) {
+            return handleValidationError(err, res)
+          }
 
           return handleResponse(500, 'application/json', { error: 'Failed to update task' }, res);
         }
