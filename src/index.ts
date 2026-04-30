@@ -93,7 +93,6 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
-    //todo: handle the case where session id isnt provided, or is not in proper format
     authenticatedSession = await handleVerifySession(parsedSessionId)
   } catch (err) {
     return handleResponse(500, 'application/json', { error: "Something went wrong during authentication check" }, res)
