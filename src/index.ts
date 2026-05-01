@@ -11,7 +11,6 @@ import { handleLogin } from './auth/login/handleLogin.ts';
 import * as zod from 'zod'
 import { handleSyntaxError } from './errorHandlers/handleSyntaxError.ts';
 import { handleValidationError } from './errorHandlers/handleValidationError.ts';
-import { setegid } from 'node:process';
 
 const PORT = 3000;
 
@@ -29,11 +28,12 @@ const server = http.createServer(async (req, res) => {
     if (method === "POST") {
       try {
         const { session, _createdUser } = await handleUserRegistration(req)
-        const { id, maxAge, expires, httpOnly, sameSite } = session
+        const { id, maxAge, expires, sameSite } = session
 
         res.statusCode = 201;
         res.setHeader('Set-Cookie', `session_id=${id};Max-Age=${Math.floor(maxAge / 1000)};Expires=${expires.toUTCString()};HttpOnly;SameSite=${sameSite};Path=/`)
 
+        res.setHeader("Content-Type", 'application/json')
         return res.end(JSON.stringify({ ..._createdUser }, null, 2))
       } catch (err) {
         if (err instanceof SyntaxError) {
@@ -53,6 +53,7 @@ const server = http.createServer(async (req, res) => {
       }
 
     }
+    return handleResponse(405, 'application/json', { error: "Method not allowed on this endpoint" }, res)
   }
 
   if (requestInfo.pathname === "/login") {
@@ -65,11 +66,11 @@ const server = http.createServer(async (req, res) => {
 
         const { session, authenticatedUser } = loginResult
 
-        const { id, maxAge, expires, httpOnly, sameSite } = session
+        const { id, maxAge, expires, sameSite } = session
 
         res.statusCode = 200;
         res.setHeader('Set-Cookie', `session_id=${id};Max-Age=${Math.floor(maxAge / 1000)};Expires=${expires.toUTCString()};HttpOnly;SameSite=${sameSite};Path=/`)
-
+        res.setHeader("Content-Type", 'application/json')
         return res.end(JSON.stringify({ ...authenticatedUser }, null, 2))
       } catch (err) {
         if (err instanceof SyntaxError) {
@@ -83,6 +84,7 @@ const server = http.createServer(async (req, res) => {
         return handleResponse(500, "application/json", { error: "Could not log user in" }, res)
       }
     }
+    return handleResponse(405, 'application/json', { error: "Method not allowed on this endpoint" }, res)
   }
 
   const rawCookie = req.headers.cookie ?? '';
@@ -99,9 +101,7 @@ const server = http.createServer(async (req, res) => {
   );
 
   const sessionId = cookies["session_id"];
-  console.log({ rawCookie, cookies, sessionId })
 
-  // const sessionId = req.headers["session-id"]
   const parsedSessionId = Number(sessionId);
 
   if (!sessionId || !Number.isInteger(parsedSessionId) || parsedSessionId <= 0) {
