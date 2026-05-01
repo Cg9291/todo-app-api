@@ -11,6 +11,7 @@ import { handleLogin } from './auth/login/handleLogin.ts';
 import * as zod from 'zod'
 import { handleSyntaxError } from './errorHandlers/handleSyntaxError.ts';
 import { handleValidationError } from './errorHandlers/handleValidationError.ts';
+import { setegid } from 'node:process';
 
 const PORT = 3000;
 
@@ -31,7 +32,7 @@ const server = http.createServer(async (req, res) => {
         const { id, maxAge, expires, httpOnly, sameSite } = session
 
         res.statusCode = 201;
-        res.setHeader('Set-Cookie', `sessionId=${id};Max-Age=${maxAge},expires=${expires},httpOnly=${httpOnly},SameSite=${sameSite},Path="/"`)
+        res.setHeader('Set-Cookie', `session_id=${id};Max-Age=${Math.floor(maxAge / 1000)};Expires=${expires.toUTCString()};HttpOnly;SameSite=${sameSite};Path=/`)
 
         return res.end(JSON.stringify({ ..._createdUser }, null, 2))
       } catch (err) {
@@ -67,7 +68,7 @@ const server = http.createServer(async (req, res) => {
         const { id, maxAge, expires, httpOnly, sameSite } = session
 
         res.statusCode = 200;
-        res.setHeader('Set-Cookie', `sessionId=${id};Max-Age=${maxAge},expires=${expires},httpOnly=${httpOnly},SameSite=${sameSite},Path="/"`)
+        res.setHeader('Set-Cookie', `session_id=${id};Max-Age=${Math.floor(maxAge / 1000)};Expires=${expires.toUTCString()};HttpOnly;SameSite=${sameSite};Path=/`)
 
         return res.end(JSON.stringify({ ...authenticatedUser }, null, 2))
       } catch (err) {
@@ -84,7 +85,23 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  const sessionId = req.headers["session-id"]
+  const rawCookie = req.headers.cookie ?? '';
+
+  const cookies = Object.fromEntries(
+    rawCookie
+      .split(';')
+      .map(part => part.trim())
+      .filter(Boolean)
+      .map(part => {
+        const [name, ...rest] = part.split('=');
+        return [name, rest.join('=')];
+      })
+  );
+
+  const sessionId = cookies["session_id"];
+  console.log({ rawCookie, cookies, sessionId })
+
+  // const sessionId = req.headers["session-id"]
   const parsedSessionId = Number(sessionId);
 
   if (!sessionId || !Number.isInteger(parsedSessionId) || parsedSessionId <= 0) {
