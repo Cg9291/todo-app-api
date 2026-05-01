@@ -1,5 +1,5 @@
 import http from 'node:http'
-import { db } from '../../database/db.ts';
+import { db } from '../../database/db.js';
 
 export async function handleSessionCreation(userId: number, req: http.IncomingMessage) {
 

@@ -1,6 +1,6 @@
 import http from "node:http";
-import { db } from "../database/db.ts";
-import { TaskSchema } from "./handleTaskCreation.ts";
+import { db } from "../database/db.js";
+import { TaskSchema } from "./handleTaskCreation.js";
 import zod from "zod";
 
 

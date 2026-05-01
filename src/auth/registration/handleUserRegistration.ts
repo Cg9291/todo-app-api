@@ -1,6 +1,6 @@
 import http from 'node:http'
-import { db } from '../../database/db.ts'
-import { handleSessionCreation } from '../sessions/handleSessionCreation.ts'
+import { db } from '../../database/db.js'
+import { handleSessionCreation } from '../sessions/handleSessionCreation.js'
 import * as zod from 'zod'
 import bcrypt from "bcrypt";
 

@@ -1,6 +1,6 @@
 import http from 'node:http'
-import { db } from '../../database/db.ts';
-import { handleSessionCreation } from '../sessions/handleSessionCreation.ts';
+import { db } from '../../database/db.js';
+import { handleSessionCreation } from '../sessions/handleSessionCreation.js';
 import zod from 'zod';
 import bcrypt from "bcrypt";
 
@@ -8,8 +8,7 @@ const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,72}$/
 
 const UserLoginSchema = zod.object({
   email: zod.string("Email is required").trim().min(1, "Email is required").email("Email must be a valid email"),
-  password: zod.string("Password is required").trim().min(8, "Password must be at least 8 characters long").max(72, "Password cannot be longer than 72 characters long")  //todo: add back below version of validation(includes numbers in regex)
-  // password: zod.string("Password is required").trim().min(8, "Password must be at least 8 characters long").max(72, "Password cannot be longer than 72 characters long").regex(passwordRegex, "Password must be 8 to 72 characters long and include at least one letter and one number."),
+  password: zod.string("Password is required").trim().min(8, "Password must be at least 8 characters long").max(72, "Password cannot be longer than 72 characters long").regex(passwordRegex, "Password must be 8 to 72 characters long and include at least one letter and one number."),
   // confirmPassword: zod.regex(passwordRegex)
 })
 

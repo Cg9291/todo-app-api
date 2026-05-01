@@ -1,4 +1,4 @@
-import { db } from "../../database/db.ts";
+import { db } from "../../database/db.js";
 
 export async function handleVerifySession(sessionId: number) {
   const sessionCheckQuery = `SELECT * FROM sessions WHERE id = ($1)`

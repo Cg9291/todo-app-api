@@ -1,6 +1,6 @@
 import http from 'node:http'
 import zod from 'zod'
-import { handleResponse } from '../responseHandlers/handleResponse.ts'
+import { handleResponse } from '../responseHandlers/handleResponse.js'
 
 export function handleValidationError(err: zod.ZodError, res: http.ServerResponse) {
   const errorMessages = err.issues.map((error) => error.message)

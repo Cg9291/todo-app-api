@@ -1,16 +1,16 @@
 import http from 'node:http'
-import { handleResponse } from './responseHandlers/handleResponse.ts';
-import { handleTaskCreation } from './routeHandlers/handleTaskCreation.ts';
-import { handleGetTasks } from './routeHandlers/handleGetTasks.ts';
-import { handleTaskUpdate } from './routeHandlers/handleTaskUpdate.ts';
-import { handleTaskDeletion } from './routeHandlers/handleTaskDeletion.ts';
-import { handleUserRegistration } from './auth/registration/handleUserRegistration.ts';
-import { verifyIsPaginationNumber } from './utilities/verifyIsNumber.ts';
-import { handleVerifySession } from './auth/sessions/handleVerifySession.ts';
-import { handleLogin } from './auth/login/handleLogin.ts';
+import { handleResponse } from './responseHandlers/handleResponse.js';
+import { handleTaskCreation } from './routeHandlers/handleTaskCreation.js';
+import { handleGetTasks } from './routeHandlers/handleGetTasks.js';
+import { handleTaskUpdate } from './routeHandlers/handleTaskUpdate.js';
+import { handleTaskDeletion } from './routeHandlers/handleTaskDeletion.js';
+import { handleUserRegistration } from './auth/registration/handleUserRegistration.js';
+import { verifyIsPaginationNumber } from './utilities/verifyIsNumber.js';
+import { handleVerifySession } from './auth/sessions/handleVerifySession.js';
+import { handleLogin } from './auth/login/handleLogin.js';
 import * as zod from 'zod'
-import { handleSyntaxError } from './errorHandlers/handleSyntaxError.ts';
-import { handleValidationError } from './errorHandlers/handleValidationError.ts';
+import { handleSyntaxError } from './errorHandlers/handleSyntaxError.js';
+import { handleValidationError } from './errorHandlers/handleValidationError.js';
 
 const PORT = 3000;
 

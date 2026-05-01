@@ -1,6 +1,6 @@
 import http from 'node:http'
-import type { ExistingTask } from '../types/types.ts'
-import { db } from "../database/db.ts";
+import type { ExistingTask } from '../types/types.js'
+import { db } from "../database/db.js";
 import zod from 'zod';
 
 export const TaskSchema = zod.object({

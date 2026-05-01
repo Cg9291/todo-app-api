@@ -1,62 +1,206 @@
 import http from 'node:http';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { handleSuccess } from './responseHandlers/handleSuccess.js';
+import { handleResponse } from './responseHandlers/handleResponse.js';
+import { handleTaskCreation } from './routeHandlers/handleTaskCreation.js';
+import { handleGetTasks } from './routeHandlers/handleGetTasks.js';
+import { handleTaskUpdate } from './routeHandlers/handleTaskUpdate.js';
+import { handleTaskDeletion } from './routeHandlers/handleTaskDeletion.js';
+import { handleUserRegistration } from './auth/registration/handleUserRegistration.js';
+import { verifyIsPaginationNumber } from './utilities/verifyIsNumber.js';
+import { handleVerifySession } from './auth/sessions/handleVerifySession.js';
+import { handleLogin } from './auth/login/handleLogin.js';
+import * as zod from 'zod';
+import { handleSyntaxError } from './errorHandlers/handleSyntaxError.js';
+import { handleValidationError } from './errorHandlers/handleValidationError.js';
 const PORT = 3000;
 const server = http.createServer(async (req, res) => {
     const baseUrl = `http://${req.headers.host}`;
-    const requestPath = req.url;
+    const requestPath = req.url || '/';
     const method = req.method;
     const requestInfo = new URL(requestPath, baseUrl);
+    const queryObject = Object.fromEntries(requestInfo.searchParams);
     const segments = requestInfo.pathname.split("/").filter(Boolean);
-    console.log({ path: requestPath, method, requestInfo });
-    if (requestInfo.pathname === "/") {
-        if (method === 'GET') {
-            const __dirname = import.meta.dirname;
-            const dataPath = path.join(__dirname, '../data', 'todos-list.json');
-            let rawResource = await fs.readFile(dataPath, 'utf8');
-            rawResource = JSON.parse(rawResource);
-            console.log({ dataPath, rawResource });
-            return handleSuccess(200, 'application/json', rawResource, res);
-            // res.statusCode = 200
-            // res.setHeader("Content-Type", "application/json")
-            // return res.end(rawResource)
-        }
-        res.statusCode = 405;
-        res.setHeader('Content-Type', 'application/json');
-        return res.end(JSON.stringify({ error: "Only GET method can be perfomed on this endpoint" }));
-    }
-    if (segments[0].toLowerCase() === "todos") {
-        if (method === 'POST') {
-            let body = '';
-            for await (const chunk of req) {
-                body += chunk;
-            }
-            const __dirname = import.meta.dirname;
-            const dataPath = path.join(__dirname, '../data', 'todos-list.json');
-            let rawResource = await fs.readFile(dataPath, 'utf8');
-            rawResource = JSON.parse(rawResource);
-            console.log({ body });
-            let parsedBody = JSON.parse(body);
-            parsedBody = { id: Math.floor(Math.random() * 100), ...parsedBody };
+    if (requestInfo.pathname === "/register") {
+        if (method === "POST") {
             try {
-                let updatedResource = [...rawResource, parsedBody];
-                updatedResource = JSON.stringify(updatedResource);
-                console.log({ rawResource, parsedBody, updatedResource });
-                await fs.writeFile(dataPath, updatedResource, 'utf8');
-                console.log("You successfully wrote to data");
+                const { session, _createdUser } = await handleUserRegistration(req);
+                const { id, maxAge, expires, sameSite } = session;
+                res.statusCode = 201;
+                res.setHeader('Set-Cookie', `session_id=${id};Max-Age=${Math.floor(maxAge / 1000)};Expires=${expires.toUTCString()};HttpOnly;SameSite=${sameSite};Path=/`);
+                res.setHeader("Content-Type", 'application/json');
+                return res.end(JSON.stringify({ ..._createdUser }, null, 2));
             }
             catch (err) {
-                console.log("There has been an error writing to the file", err);
+                if (err instanceof SyntaxError) {
+                    return handleSyntaxError(res);
+                }
+                if (err instanceof zod.ZodError) {
+                    return handleValidationError(err, res);
+                }
+                const e = err;
+                if (e.code === "USER_ALREADY_EXISTS") {
+                    return handleResponse(409, 'application/json', { error: e.message }, res);
+                }
+                return handleResponse(500, 'application/json', { error: "Could not complete registration" }, res);
             }
-            return handleSuccess(200, 'application/json', parsedBody, res);
-            // res.statusCode = 200
-            // res.setHeader('Content-Type', 'application/json')
-            // return res.end(JON.stringify(parsedBody))
+        }
+        return handleResponse(405, 'application/json', { error: "Method not allowed on this endpoint" }, res);
+    }
+    if (requestInfo.pathname === "/login") {
+        if (method === "POST") {
+            try {
+                const loginResult = await handleLogin(req);
+                if (!loginResult) {
+                    return handleResponse(401, 'application/json', { error: 'Invalid credentials' }, res);
+                }
+                const { session, authenticatedUser } = loginResult;
+                const { id, maxAge, expires, sameSite } = session;
+                res.statusCode = 200;
+                res.setHeader('Set-Cookie', `session_id=${id};Max-Age=${Math.floor(maxAge / 1000)};Expires=${expires.toUTCString()};HttpOnly;SameSite=${sameSite};Path=/`);
+                res.setHeader("Content-Type", 'application/json');
+                return res.end(JSON.stringify({ ...authenticatedUser }, null, 2));
+            }
+            catch (err) {
+                if (err instanceof SyntaxError) {
+                    return handleSyntaxError(res);
+                }
+                if (err instanceof zod.ZodError) {
+                    return handleValidationError(err, res);
+                }
+                //todo: maybe consider adding session info to the response as well(here and in register)
+                return handleResponse(500, "application/json", { error: "Could not log user in" }, res);
+            }
+        }
+        return handleResponse(405, 'application/json', { error: "Method not allowed on this endpoint" }, res);
+    }
+    const rawCookie = req.headers.cookie ?? '';
+    const cookies = Object.fromEntries(rawCookie
+        .split(';')
+        .map(part => part.trim())
+        .filter(Boolean)
+        .map(part => {
+        const [name, ...rest] = part.split('=');
+        return [name, rest.join('=')];
+    }));
+    const sessionId = cookies["session_id"];
+    const parsedSessionId = Number(sessionId);
+    if (!sessionId || !Number.isInteger(parsedSessionId) || parsedSessionId <= 0) {
+        return handleResponse(401, 'application/json', {
+            error: "Invalid or expired session"
+        }, res);
+    }
+    let authenticatedSession;
+    try {
+        authenticatedSession = await handleVerifySession(parsedSessionId);
+    }
+    catch (err) {
+        return handleResponse(500, 'application/json', { error: "Something went wrong during authentication check" }, res);
+    }
+    if (authenticatedSession) {
+        const userId = authenticatedSession["user_id"];
+        if (requestInfo.pathname === "/") {
+            if (method === 'GET') {
+                console.log({ sessionId });
+                res.writeHead(301, { 'location': 'todos' });
+                return res.end();
+            }
+            return handleResponse(405, 'application/json', { error: "Only GET method can be performed on this endpoint" }, res);
+        }
+        if (segments[0]?.toLowerCase() === "todos") {
+            if (!segments[1]) {
+                if (method === "GET") {
+                    try {
+                        if (Object.keys(queryObject).length === 0) {
+                            const data = await handleGetTasks(userId);
+                            return handleResponse(200, 'application/json', data, res);
+                        }
+                        const { page, limit } = queryObject;
+                        const hasPage = page !== undefined;
+                        const hasLimit = limit !== undefined;
+                        if (!hasPage && !hasLimit) {
+                            const data = await handleGetTasks(userId);
+                            return handleResponse(200, 'application/json', data, res);
+                        }
+                        if (!hasPage && hasLimit) {
+                            if (!verifyIsPaginationNumber(limit)) {
+                                return handleResponse(400, 'application/json', { error: 'limit must be a positive integer' }, res);
+                            }
+                            ;
+                            const data = await handleGetTasks(userId, 1, Number(limit));
+                            return handleResponse(200, 'application/json', { data: data.data, page: 1, limit: Number(limit), total: Number(data.total) }, res);
+                        }
+                        if (hasPage && !hasLimit) {
+                            return handleResponse(400, 'application/json', { error: "limit is required when page is provided" }, res);
+                        }
+                        if (!verifyIsPaginationNumber(page) || !verifyIsPaginationNumber(limit)) {
+                            return handleResponse(400, 'application/json', { error: 'page and limit must be positive integers' }, res);
+                        }
+                        const data = await handleGetTasks(userId, Number(page), Number(limit));
+                        return handleResponse(200, 'application/json', { data: data.data, page: Number(page), limit: Number(limit), total: Number(data.total) }, res);
+                    }
+                    catch (err) {
+                        console.error(err);
+                        return handleResponse(500, 'application/json', { error: 'Failed to fetch tasks' }, res);
+                    }
+                }
+                if (method === 'POST') {
+                    try {
+                        const parsedBody = await handleTaskCreation(req, authenticatedSession["user_id"]);
+                        return handleResponse(201, 'application/json', parsedBody, res);
+                    }
+                    catch (err) {
+                        if (err instanceof SyntaxError) {
+                            return handleSyntaxError(res);
+                        }
+                        if (err instanceof zod.ZodError) {
+                            return handleValidationError(err, res);
+                        }
+                        return handleResponse(500, 'application/json', { error: "Failed to create task" }, res);
+                    }
+                }
+                return handleResponse(405, 'application/json', { error: "Method not allowed" }, res);
+            }
+            const todoId = segments[1];
+            const parsedTodoId = Number(todoId);
+            if (isNaN(parsedTodoId)) {
+                return handleResponse(400, 'application/json', { error: "The id path parameter should be a number" }, res);
+            }
+            if (method === "PUT") {
+                try {
+                    const updatedTask = await handleTaskUpdate(parsedTodoId, userId, req);
+                    if (!updatedTask) {
+                        return handleResponse(404, 'application/json', { error: "Could not find task" }, res);
+                    }
+                    return handleResponse(200, 'application/json', { message: "Resource was successfully updated", updatedTask }, res);
+                }
+                catch (err) {
+                    if (err instanceof SyntaxError) {
+                        return handleSyntaxError(res);
+                    }
+                    if (err instanceof zod.ZodError) {
+                        return handleValidationError(err, res);
+                    }
+                    return handleResponse(500, 'application/json', { error: 'Failed to update task' }, res);
+                }
+            }
+            if (method === "DELETE") {
+                try {
+                    const deleted = await handleTaskDeletion(parsedTodoId, userId);
+                    if (!deleted) {
+                        return handleResponse(404, 'application/json', { error: "Task not found" }, res);
+                    }
+                    res.statusCode = 204;
+                    return res.end();
+                }
+                catch (err) {
+                    return handleResponse(500, 'application/json', { error: "Failed to delete task" }, res);
+                }
+            }
+            return handleResponse(405, 'application/json', { error: "Method not allowed" }, res);
         }
     }
-    res.statusCode = 400;
-    res.setHeader('Content-Type', 'application/json');
-    return res.end(JSON.stringify({ error: "Wrong route/buddy" }));
+    else {
+        return handleResponse(401, 'application/json', { error: "Invalid or expired session" }, res);
+    }
+    handleResponse(404, 'application/json', { error: "Wrong route/buddy" }, res);
 });
-server.listen(PORT, () => { `Server running on port:${PORT}`; });
+server.listen(PORT, () => { console.log(`Server running on port:${PORT}`); });

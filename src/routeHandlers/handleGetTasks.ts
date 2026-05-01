@@ -1,5 +1,5 @@
-import type { ExistingTask } from '../types/types.ts'
-import { db } from '../database/db.ts'
+import type { ExistingTask } from '../types/types.js'
+import { db } from '../database/db.js'
 
 export async function handleGetTasks(userId: number, page?: number, limit?: number): Promise<{ data: ExistingTask[], total: number }> {
   let selectQuery: string;

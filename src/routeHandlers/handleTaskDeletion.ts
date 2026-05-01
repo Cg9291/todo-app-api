@@ -1,4 +1,4 @@
-import { db } from '../database/db.ts'
+import { db } from '../database/db.js'
 
 export async function handleTaskDeletion(taskId: number, userId: number) {
   try {
