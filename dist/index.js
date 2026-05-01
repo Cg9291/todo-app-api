@@ -83,6 +83,31 @@ const server = http.createServer(async (req, res) => {
     }));
     const sessionId = cookies["session_id"];
     const parsedSessionId = Number(sessionId);
+    if (requestInfo.pathname === "/") {
+        if (method !== "GET") {
+            return handleResponse(405, 'application/json', {
+                error: "Only GET method can be performed on this endpoint"
+            }, res);
+        }
+        let authenticatedSession = null;
+        if (sessionId && Number.isInteger(parsedSessionId) && parsedSessionId > 0) {
+            try {
+                authenticatedSession = await handleVerifySession(parsedSessionId);
+            }
+            catch {
+                return handleResponse(500, 'application/json', {
+                    error: "Something went wrong during authentication check"
+                }, res);
+            }
+        }
+        if (authenticatedSession) {
+            res.writeHead(301, { location: "todos/" });
+            return res.end();
+        }
+        return handleResponse(401, 'application/json', {
+            "error": "You do not appear to be authenticated. Please go to /login or /register."
+        }, res);
+    }
     if (!sessionId || !Number.isInteger(parsedSessionId) || parsedSessionId <= 0) {
         return handleResponse(401, 'application/json', {
             error: "Invalid or expired session"
@@ -97,14 +122,6 @@ const server = http.createServer(async (req, res) => {
     }
     if (authenticatedSession) {
         const userId = authenticatedSession["user_id"];
-        if (requestInfo.pathname === "/") {
-            if (method === 'GET') {
-                console.log({ sessionId });
-                res.writeHead(301, { 'location': 'todos' });
-                return res.end();
-            }
-            return handleResponse(405, 'application/json', { error: "Only GET method can be performed on this endpoint" }, res);
-        }
         if (segments[0]?.toLowerCase() === "todos") {
             if (!segments[1]) {
                 if (method === "GET") {
