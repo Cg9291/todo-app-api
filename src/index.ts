@@ -13,8 +13,45 @@ import { handleSyntaxError } from './errorHandlers/handleSyntaxError.js';
 import { handleValidationError } from './errorHandlers/handleValidationError.js';
 
 const PORT = 3000;
+const frontendOrigin = process.env.FRONTEND_ORIGIN ?? 'http://localhost:4173';
+const allowedOrigins = new Set([frontendOrigin, 'http://localhost:4173']);
+const cookieSameSite = process.env.COOKIE_SAME_SITE ?? 'Strict';
+const cookieSecure = process.env.COOKIE_SECURE === 'true';
+
+function applyCorsHeaders(req: http.IncomingMessage, res: http.ServerResponse<http.IncomingMessage>) {
+  const origin = req.headers.origin;
+
+  if (!origin || !allowedOrigins.has(origin)) {
+    return;
+  }
+
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Vary', 'Origin');
+}
+
+function buildSessionCookie(session: { id: number; maxAge: number; expires: Date }) {
+  const parts = [
+    `session_id=${session.id}`,
+    `Max-Age=${Math.floor(session.maxAge / 1000)}`,
+    `Expires=${session.expires.toUTCString()}`,
+    'HttpOnly',
+    `SameSite=${cookieSameSite}`,
+    'Path=/'
+  ];
+
+  if (cookieSecure) {
+    parts.push('Secure');
+  }
+
+  return parts.join(';');
+}
 
 const server = http.createServer(async (req, res) => {
+  applyCorsHeaders(req, res)
+
   const baseUrl = `http://${req.headers.host}`
   const requestPath = req.url || '/';
   const method = req.method
@@ -22,16 +59,19 @@ const server = http.createServer(async (req, res) => {
   const queryObject = Object.fromEntries(requestInfo.searchParams)
   const segments = requestInfo.pathname.split("/").filter(Boolean)
 
+  if (method === 'OPTIONS') {
+    res.statusCode = 204;
+    return res.end();
+  }
 
 
   if (requestInfo.pathname === "/register") {
     if (method === "POST") {
       try {
         const { session, _createdUser } = await handleUserRegistration(req)
-        const { id, maxAge, expires, sameSite } = session
 
         res.statusCode = 201;
-        res.setHeader('Set-Cookie', `session_id=${id};Max-Age=${Math.floor(maxAge / 1000)};Expires=${expires.toUTCString()};HttpOnly;SameSite=${sameSite};Path=/`)
+        res.setHeader('Set-Cookie', buildSessionCookie(session))
 
         res.setHeader("Content-Type", 'application/json')
         return res.end(JSON.stringify({ ..._createdUser }, null, 2))
@@ -66,10 +106,8 @@ const server = http.createServer(async (req, res) => {
 
         const { session, authenticatedUser } = loginResult
 
-        const { id, maxAge, expires, sameSite } = session
-
         res.statusCode = 200;
-        res.setHeader('Set-Cookie', `session_id=${id};Max-Age=${Math.floor(maxAge / 1000)};Expires=${expires.toUTCString()};HttpOnly;SameSite=${sameSite};Path=/`)
+        res.setHeader('Set-Cookie', buildSessionCookie(session))
         res.setHeader("Content-Type", 'application/json')
         return res.end(JSON.stringify({ ...authenticatedUser }, null, 2))
       } catch (err) {
