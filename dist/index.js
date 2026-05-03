@@ -105,7 +105,7 @@ const server = http.createServer(async (req, res) => {
             return res.end();
         }
         return handleResponse(401, 'application/json', {
-            "error": "You do not appear to be authenticated. Please go to /login or /register."
+            "error": "You do not appear to be authenticated. Please send your POST request to /login or /register."
         }, res);
     }
     if (!sessionId || !Number.isInteger(parsedSessionId) || parsedSessionId <= 0) {
